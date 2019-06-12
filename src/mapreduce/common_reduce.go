@@ -1,5 +1,13 @@
 package mapreduce
 
+import (
+	"encoding/json"
+	"fmt"
+	"log"
+	"os"
+	"sort"
+)
+
 func doReduce(
 	jobName string, // the name of the whole MapReduce job
 	reduceTask int, // which reduce task this is
@@ -26,9 +34,7 @@ func doReduce(
 	// documentation useful.
 	//
 	// reduceF() is the application's reduce function. You should
-	// call it once per distinct key, with a slice of all the values
-	// for that key. reduceF() returns the reduced value for that key.
-	//
+	// call it once per distinct key, with a slice of all the values // for that key. reduceF() returns the reduced value for that key. //
 	// You should write the reduce output as JSON encoded KeyValue
 	// objects to the file named outFile. We require you to use JSON
 	// because that is what the merger than combines the output
@@ -44,4 +50,67 @@ func doReduce(
 	//
 	// Your code here (Part I).
 	//
+
+	// 1. Read intermediate file
+	var fileList []*os.File
+	for m := 0; m < nMap; m++ {
+		fileName := reduceName(jobName, m, reduceTask)
+		file, err := os.Open(fileName)
+		if err != nil {
+			log.Fatal(err)
+		}
+		fileList = append(fileList, file)
+		defer file.Close()
+	}
+	//debug("intermediate file: %s \n", tmpName)
+
+	// 2. Read key/value pairs
+	var kvs KeyValues
+	//var kvs []*KeyValue
+	for _, file := range fileList {
+		dec := json.NewDecoder(file)
+		for {
+			var kv KeyValue
+			err := dec.Decode(&kv)
+			if err != nil {
+				break
+			}
+			kvs = append(kvs, &kv)
+		}
+	}
+
+	// 3. sort
+	sort.Sort(kvs)
+
+	// 4. call reduce
+	var key string
+	var values []string
+	var result []KeyValue
+	for _, kv := range kvs {
+		if kv.Key == key {
+			values = append(values, kv.Value)
+		} else {
+			key = kv.Key
+			result = append(result, KeyValue{
+				Key:   kv.Key,
+				Value: reduceF(kv.Key, values),
+			})
+			values = []string{}
+		}
+	}
+
+	// 5. record to file
+	//debug("This is the output file name: %s\n", outFile)
+	file, err := os.Create(outFile)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+	enc := json.NewEncoder(file)
+	for _, kv := range result {
+		err := enc.Encode(kv)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "Kv wrtie to result file failed: ", err)
+		}
+	}
 }
