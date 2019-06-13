@@ -66,7 +66,6 @@ func doReduce(
 
 	// 2. Read key/value pairs
 	var kvs KeyValues
-	//var kvs []*KeyValue
 	for _, file := range fileList {
 		dec := json.NewDecoder(file)
 		for {
@@ -83,20 +82,32 @@ func doReduce(
 	sort.Sort(kvs)
 
 	// 4. call reduce
-	var key string
+	var preKey string
 	var values []string
 	var result []KeyValue
 	for _, kv := range kvs {
-		if kv.Key == key {
-			values = append(values, kv.Value)
+		if kv.Key != preKey {
+			// pre Key 
+			if len(values) > 0 {
+				kv := KeyValue{
+					Key:   preKey,
+					Value: reduceF(preKey, values),
+				}
+				result = append(result, kv)
+			}
+			// this key
+			values = []string{kv.Value}
+			preKey = kv.Key
 		} else {
-			key = kv.Key
-			result = append(result, KeyValue{
-				Key:   kv.Key,
-				Value: reduceF(kv.Key, values),
-			})
-			values = []string{}
+			values = append(values, kv.Value)
 		}
+	}
+	if len(values) > 0 {
+		kv := KeyValue{
+			Key:   preKey,
+			Value: reduceF(preKey, values),
+		}
+		result = append(result, kv)
 	}
 
 	// 5. record to file

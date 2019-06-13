@@ -6,7 +6,7 @@ import (
 )
 
 // Debugging enabled?
-const debugEnabled = true
+const debugEnabled = false
 
 // debug() will only print if debugEnabled is true
 func debug(format string, a ...interface{}) (n int, err error) {
@@ -46,9 +46,5 @@ func mergeName(jobName string, reduceTask int) string {
 type KeyValues []*KeyValue
 
 func (kv KeyValues) Len() int { return len(kv) }
-func (kv KeyValues) Less(i, j int) bool {
-	in, _ := strconv.Atoi(kv[i].Key)
-	jn, _ := strconv.Atoi(kv[j].Key)
-	return in < jn
-}
+func (kv KeyValues) Less(i, j int) bool { return kv[i].Key < kv[j].Key }
 func (kv KeyValues) Swap(i, j int) { kv[i], kv[j] = kv[j], kv[i] }
